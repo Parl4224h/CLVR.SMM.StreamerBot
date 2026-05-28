@@ -11,6 +11,7 @@ public class VoiceStateHandler(
     GatewayClient gatewayClient,
     RestClient restClient,
     GuestStageManager guestStageManager,
+    DashboardService dashboardService,
     IOptions<BotSettings> botSettings) : IVoiceStateUpdateGatewayHandler
 {
     private const int UnknownVoiceStateCode = 10065;
@@ -146,7 +147,10 @@ public class VoiceStateHandler(
         {
             var isUpdateInConfiguredChannel = newState.ChannelId == configuredChannelId;
             if (isUpdateInConfiguredChannel)
+            {
                 await guestStageManager.HandleVoiceStateUpdatedAsync(newState);
+                await dashboardService.RefreshDashboardAsync();
+            }
         }
     }
 }

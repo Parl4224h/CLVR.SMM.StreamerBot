@@ -12,6 +12,7 @@ public class StreamerCommandModule : CommandModuleBase
     public class GuestCommandModule(
         GuestQueueService guestQueueService,
         GuestStageManager guestStageManager,
+        DashboardService dashboardService,
         IOptions<BotSettings> botSettings
     ) : CommandModuleBase
     {
@@ -68,6 +69,7 @@ public class StreamerCommandModule : CommandModuleBase
                     if (!await guestStageManager.UnsuppressGuestAsync(guild.Id, user.Id))
                         await guestStageManager.EnsureGuestSpeakersAsync(guild.Id);
 
+                    await dashboardService.RefreshDashboardAsync();
                     await ReplyAsync($"Guest {user.Username} added to an open slot.", true);
                     return;
                 case GuestQueueAddResult.SlotsFull:
@@ -75,6 +77,7 @@ public class StreamerCommandModule : CommandModuleBase
                     return;
                 case GuestQueueAddResult.AlreadyQueued:
                     await guestStageManager.UnsuppressGuestAsync(guild.Id, user.Id);
+                    await dashboardService.RefreshDashboardAsync();
                     await ReplyAsync("The guest is already in a slot.", true);
                     return;
                 case GuestQueueAddResult.AlreadySpeaking:
@@ -97,6 +100,7 @@ public class StreamerCommandModule : CommandModuleBase
             if (removed)
             {
                 await guestStageManager.SuppressGuestAsync(guild.Id, user.Id);
+                await dashboardService.RefreshDashboardAsync();
                 await ReplyAsync($"Guest {user.Username} removed from the slots.", true);
                 return;
             }

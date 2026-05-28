@@ -16,12 +16,15 @@ builder.Services
     .Validate(settings => settings.StreamerRoleId != 0, $"{BotSettings.SectionName}:StreamerRoleId must be configured.")
     .Validate(settings => settings.ModRoleId != 0, $"{BotSettings.SectionName}:ModRoleId must be configured.")
     .Validate(settings => settings.ChannelId != 0, $"{BotSettings.SectionName}:ChannelId must be configured.")
+    .Validate(settings => settings.DashboardChannelId != 0,
+        $"{BotSettings.SectionName}:DashboardChannelId must be configured.")
     .Validate(settings => settings.GuestTimeoutMinutes > 0,
         $"{BotSettings.SectionName}:GuestTimeoutMinutes must be greater than 0.")
     .ValidateOnStart();
 
 builder.Services.AddSingleton<GuestQueueService>();
 builder.Services.AddSingleton<GuestStageManager>();
+builder.Services.AddSingleton<DashboardService>();
 builder.Services.AddHostedService<GuestSpeakerRotationService>();
 
 builder.Services
@@ -32,6 +35,7 @@ builder.Services
                        GatewayIntents.GuildUsers;
     })
     .AddGatewayHandler<VoiceStateHandler>()
+    .AddGatewayHandler<DashboardService>(serviceProvider => serviceProvider.GetRequiredService<DashboardService>())
     .AddApplicationCommands<SlashCommandInteraction, SlashCommandContext>(opts =>
     {
         opts.AutoRegisterCommands = true;

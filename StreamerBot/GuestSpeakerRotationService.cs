@@ -1,6 +1,8 @@
 namespace StreamerBot;
 
-public class GuestSpeakerRotationService(GuestStageManager guestStageManager) : BackgroundService
+public class GuestSpeakerRotationService(
+    GuestStageManager guestStageManager,
+    DashboardService dashboardService) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -11,6 +13,7 @@ public class GuestSpeakerRotationService(GuestStageManager guestStageManager) : 
             try
             {
                 await guestStageManager.ProcessExpiredSpeakersAsync();
+                await dashboardService.RefreshDashboardAsync(stoppingToken);
             }
             catch
             {

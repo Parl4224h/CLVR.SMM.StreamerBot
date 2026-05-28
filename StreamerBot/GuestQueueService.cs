@@ -32,6 +32,15 @@ public class GuestQueueService(IOptions<BotSettings> botSettings)
         }
     }
 
+    public IReadOnlyList<GuestQueueEntry> GetGuestEntries(ulong guildId)
+    {
+        var state = _guildStates.GetOrAdd(guildId, static _ => new GuildGuestState());
+        lock (state.Sync)
+        {
+            return state.Slots.ToArray();
+        }
+    }
+
     public int GetOccupiedSlotCount(ulong guildId)
     {
         var state = _guildStates.GetOrAdd(guildId, static _ => new GuildGuestState());
