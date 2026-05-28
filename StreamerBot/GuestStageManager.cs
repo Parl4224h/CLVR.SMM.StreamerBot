@@ -52,6 +52,49 @@ public class GuestStageManager(
         await EnsureGuestSpeakersAsync(guildId, stageChannelId);
     }
 
+    public async Task<bool> UnsuppressGuestAsync(ulong guildId, ulong userId)
+    {
+        if (!gatewayClient.Cache.Guilds.TryGetValue(guildId, out var guild))
+            return false;
+
+        if (!guild.VoiceStates.TryGetValue(userId, out var voiceState) ||
+            voiceState.ChannelId is not { } channelId ||
+            !guild.Channels.TryGetValue(channelId, out var channel) ||
+            channel is not StageGuildChannel ||
+            !IsGuest(guild, userId))
+        {
+            guestQueueService.MarkSpeakerStopped(guildId, userId);
+            return false;
+        }
+
+        if (!voiceState.Suppressed)
+        {
+            guestQueueService.MarkSpeakerStarted(guildId, channelId, userId);
+            return true;
+        }
+
+        try
+        {
+            await restClient.ModifyGuildUserVoiceStateAsync(
+                guildId,
+                channelId,
+                userId,
+                options => options.WithSuppress(false));
+
+            guestQueueService.MarkSpeakerStarted(guildId, channelId, userId);
+            return true;
+        }
+        catch (RestException ex) when (ex is
+                                       {
+                                           StatusCode: HttpStatusCode.NotFound, Error.Code: UnknownVoiceStateCode
+                                       })
+        {
+            // User state changed while processing the command.
+            guestQueueService.MarkSpeakerStopped(guildId, userId);
+            return false;
+        }
+    }
+
     public async Task HandleVoiceStateUpdatedAsync(VoiceState newState)
     {
         if (!gatewayClient.Cache.Guilds.TryGetValue(newState.GuildId, out var guild))

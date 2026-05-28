@@ -65,13 +65,16 @@ public class StreamerCommandModule : CommandModuleBase
             switch (addResult)
             {
                 case GuestQueueAddResult.Added:
-                    await guestStageManager.EnsureGuestSpeakersAsync(guild.Id);
+                    if (!await guestStageManager.UnsuppressGuestAsync(guild.Id, user.Id))
+                        await guestStageManager.EnsureGuestSpeakersAsync(guild.Id);
+
                     await ReplyAsync($"Guest {user.Username} added to an open slot.", true);
                     return;
                 case GuestQueueAddResult.SlotsFull:
                     await ReplyAsync($"All {_botSettings.GuestSlotCount} guest slots are full.", true);
                     return;
                 case GuestQueueAddResult.AlreadyQueued:
+                    await guestStageManager.UnsuppressGuestAsync(guild.Id, user.Id);
                     await ReplyAsync("The guest is already in a slot.", true);
                     return;
                 case GuestQueueAddResult.AlreadySpeaking:
