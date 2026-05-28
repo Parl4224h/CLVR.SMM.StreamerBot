@@ -12,6 +12,8 @@ public class BotSettings
 
     public ulong ModRoleId { get; set; }
 
+    public ulong MutedRoleId { get; set; }
+
     public ulong ChannelId { get; set; }
 
     public ulong DashboardChannelId { get; set; }

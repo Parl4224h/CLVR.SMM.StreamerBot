@@ -46,10 +46,10 @@ public class DashboardService(
 
     public async Task EnsureDashboardMessageAsync(CancellationToken cancellationToken = default)
     {
-        var guild = TryGetDashboardGuild();
-        if (guild is null)
+        var guildId = await GetDashboardGuildIdAsync(cancellationToken);
+        if (guildId is null)
         {
-            logger.LogWarning("Dashboard channel {DashboardChannelId} was not found in the gateway cache.",
+            logger.LogWarning("Dashboard channel {DashboardChannelId} could not be resolved.",
                 _botSettings.DashboardChannelId);
             return;
         }
@@ -71,7 +71,7 @@ public class DashboardService(
 
             if (messages is [{ Author.Id: var authorId } existing] && authorId == botUserId.Value)
             {
-                await ModifyDashboardMessageAsync(existing.Id, guild.Id, cancellationToken);
+                await ModifyDashboardMessageAsync(existing.Id, guildId.Value, cancellationToken);
                 _dashboardMessageId = existing.Id;
                 return;
             }
@@ -93,7 +93,7 @@ public class DashboardService(
 
             var dashboardMessage = await restClient.SendMessageAsync(
                 _botSettings.DashboardChannelId,
-                BuildDashboardMessage(guild.Id),
+                BuildDashboardMessage(guildId.Value),
                 cancellationToken: cancellationToken);
             _dashboardMessageId = dashboardMessage.Id;
         }
@@ -105,8 +105,8 @@ public class DashboardService(
 
     public async Task RefreshDashboardAsync(CancellationToken cancellationToken = default)
     {
-        var guild = TryGetDashboardGuild();
-        if (guild is null)
+        var guildId = await GetDashboardGuildIdAsync(cancellationToken);
+        if (guildId is null)
             return;
 
         await _sync.WaitAsync(cancellationToken);
@@ -116,7 +116,7 @@ public class DashboardService(
             {
                 try
                 {
-                    await ModifyDashboardMessageAsync(messageId, guild.Id, cancellationToken);
+                    await ModifyDashboardMessageAsync(messageId, guildId.Value, cancellationToken);
                     return;
                 }
                 catch (RestException ex) when (ex.StatusCode is HttpStatusCode.NotFound)
@@ -189,6 +189,12 @@ public class DashboardService(
             if (!IsGuest(targetUser))
             {
                 skipped.Add($"{selectedUser.Username} is a mod or streamer");
+                continue;
+            }
+
+            if (targetUser.RoleIds.Contains(_botSettings.MutedRoleId))
+            {
+                skipped.Add($"{selectedUser.Username} is muted");
                 continue;
             }
 
@@ -319,10 +325,31 @@ public class DashboardService(
             cancellationToken: cancellationToken);
     }
 
-    private Guild? TryGetDashboardGuild()
+    private async Task<ulong?> GetDashboardGuildIdAsync(CancellationToken cancellationToken)
     {
-        return gatewayClient.Cache.Guilds.Values.FirstOrDefault(guild =>
+        var cachedGuild = gatewayClient.Cache.Guilds.Values.FirstOrDefault(guild =>
             guild.Channels.ContainsKey(_botSettings.DashboardChannelId));
+        if (cachedGuild is not null)
+            return cachedGuild.Id;
+
+        try
+        {
+            var channel = await restClient.GetChannelAsync(
+                _botSettings.DashboardChannelId,
+                cancellationToken: cancellationToken);
+            if (channel is IGuildChannel guildChannel)
+                return guildChannel.GuildId;
+
+            logger.LogWarning("Dashboard channel {DashboardChannelId} is not a guild channel.",
+                _botSettings.DashboardChannelId);
+        }
+        catch (RestException ex) when (ex.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Forbidden)
+        {
+            logger.LogWarning(ex, "Could not fetch dashboard channel {DashboardChannelId}.",
+                _botSettings.DashboardChannelId);
+        }
+
+        return null;
     }
 
     private bool IsGuest(GuildUser guildUser)

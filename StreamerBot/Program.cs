@@ -15,6 +15,7 @@ builder.Services
         $"{BotSettings.SectionName}:GuestSlotCount must be greater than 0.")
     .Validate(settings => settings.StreamerRoleId != 0, $"{BotSettings.SectionName}:StreamerRoleId must be configured.")
     .Validate(settings => settings.ModRoleId != 0, $"{BotSettings.SectionName}:ModRoleId must be configured.")
+    .Validate(settings => settings.MutedRoleId != 0, $"{BotSettings.SectionName}:MutedRoleId must be configured.")
     .Validate(settings => settings.ChannelId != 0, $"{BotSettings.SectionName}:ChannelId must be configured.")
     .Validate(settings => settings.DashboardChannelId != 0,
         $"{BotSettings.SectionName}:DashboardChannelId must be configured.")

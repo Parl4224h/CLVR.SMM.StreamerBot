@@ -60,6 +60,12 @@ public class StreamerCommandModule : CommandModuleBase
                 return;
             }
 
+            if (targetUser.RoleIds.Contains(_botSettings.MutedRoleId))
+            {
+                await ReplyAsync($"User {user.Username} is muted and cannot be added as a guest.", true);
+                return;
+            }
+
             guestStageManager.ReconcileGuestSpeaker(guild.Id, user.Id);
 
             var addResult = guestQueueService.TryAddGuest(guild.Id, user.Id);
