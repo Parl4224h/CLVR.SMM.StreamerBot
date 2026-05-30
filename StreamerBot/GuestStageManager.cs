@@ -117,7 +117,8 @@ public class GuestStageManager(
             guild.Channels.TryGetValue(channelId, out var channel) &&
             channel is StageGuildChannel &&
             !newState.Suppressed &&
-            IsGuest(guild, newState.UserId))
+            IsGuest(guild, newState.UserId) &&
+            guestQueueService.IsQueuedGuest(newState.GuildId, newState.UserId))
         {
             guestQueueService.MarkSpeakerStarted(newState.GuildId, channelId, newState.UserId);
         }
@@ -176,7 +177,10 @@ public class GuestStageManager(
         var channelId = stageChannelId.Value;
 
         var trackedGuestSessions = guild.VoiceStates.Values
-            .Where(vs => vs.ChannelId == channelId && !vs.Suppressed && IsGuest(guild, vs.UserId))
+            .Where(vs => vs.ChannelId == channelId &&
+                         !vs.Suppressed &&
+                         IsGuest(guild, vs.UserId) &&
+                         guestQueueService.IsQueuedGuest(guildId, vs.UserId))
             .Select(vs => vs.UserId)
             .ToArray();
 

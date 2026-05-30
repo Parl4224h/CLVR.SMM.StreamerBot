@@ -93,6 +93,17 @@ public class GuestQueueService(IOptions<BotSettings> botSettings)
         }
     }
 
+    public bool IsQueuedGuest(ulong guildId, ulong guestUserId)
+    {
+        if (!_guildStates.TryGetValue(guildId, out var state))
+            return false;
+
+        lock (state.Sync)
+        {
+            return state.Slots.Any(entry => entry.GuestUserId == guestUserId);
+        }
+    }
+
     public bool TryGetNextGuestToPromote(ulong guildId, ISet<ulong> activeSpeakerUserIds, out GuestQueueEntry entry)
     {
         entry = default;
@@ -121,6 +132,9 @@ public class GuestQueueService(IOptions<BotSettings> botSettings)
 
         lock (state.Sync)
         {
+            if (!state.Slots.Any(entry => entry.GuestUserId == userId))
+                return;
+
             if (state.ActiveSpeakers.ContainsKey(userId))
                 return;
 
