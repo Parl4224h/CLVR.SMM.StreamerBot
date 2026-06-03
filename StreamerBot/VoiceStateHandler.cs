@@ -31,29 +31,25 @@ public class VoiceStateHandler(
                 return;
 
             var botUserId = botUser.Id;
-            if (newState.ChannelId != configuredChannelId)
-                return;
 
             if (guild.VoiceStates.TryGetValue(botUserId, out var botState) && botState.ChannelId is { } botChannelId)
             {
                 var updatedUserLeftBotChannel = newState.UserId != botUserId && newState.ChannelId != botChannelId;
                 if (updatedUserLeftBotChannel)
                 {
-                    var hasOtherUsersInChannel = guild.VoiceStates.Values.Any(vs =>
-                    {
-                        if (vs.UserId == botUserId || vs.UserId == newState.UserId)
-                            return false;
+                    var hasEligibleHostInChannel =
+                        await HasEligibleHostInChannelAsync(guild, botChannelId, botUserId, newState.UserId);
 
-                        return vs.ChannelId == botChannelId;
-                    });
-
-                    if (!hasOtherUsersInChannel)
+                    if (!hasEligibleHostInChannel)
                     {
                         await gatewayClient.UpdateVoiceStateAsync(new VoiceStateProperties(newState.GuildId, null));
                         return;
                     }
                 }
             }
+
+            if (newState.ChannelId != configuredChannelId)
+                return;
 
             if (newState.ChannelId is null)
                 return;
@@ -127,7 +123,7 @@ public class VoiceStateHandler(
                         .WithSelfDeaf());
             }
 
-            if (!botIsSuppressedInStage)
+            if (botInSameStage && !botIsSuppressedInStage)
                 return;
 
             try
@@ -152,5 +148,37 @@ public class VoiceStateHandler(
                 await dashboardService.RefreshDashboardAsync();
             }
         }
+    }
+
+    private async Task<bool> HasEligibleHostInChannelAsync(
+        Guild guild,
+        ulong channelId,
+        ulong botUserId,
+        ulong excludingUserId)
+    {
+        foreach (var voiceState in guild.VoiceStates.Values)
+        {
+            if (voiceState.ChannelId != channelId ||
+                voiceState.UserId == botUserId ||
+                voiceState.UserId == excludingUserId)
+            {
+                continue;
+            }
+
+            if (guild.Users.TryGetValue(voiceState.UserId, out var guildUser) ||
+                (guildUser = await guild.GetUserAsync(voiceState.UserId)) is not null)
+            {
+                if (IsEligibleHost(guildUser))
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool IsEligibleHost(GuildUser guildUser)
+    {
+        return guildUser.RoleIds.Contains(_botSettings.StreamerRoleId) ||
+               guildUser.RoleIds.Contains(_botSettings.ModRoleId);
     }
 }
